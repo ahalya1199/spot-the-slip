@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Spot The Slip Game</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    #gameArea {
+        border: 1px solid #ccc;
+        padding: 15px;
+        width: 820px;
+    }
+    canvas {
+        border: 1px solid #eee;
+        background: #fff;
+    }
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+    button {
+        padding: 8px 12px;
+        background: #0a66c2;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin: 5px;
+    }
+    #summary { margin-top: 20px; }
+</style>
+</head>
+
+<body>
+
+<h2>Spot The Slip – Single Slide Test</h2>
+
+<div id="gameArea">
+    <div class="topbar">
+        <div>
+            <b id="masterTimer">Time left: 60s</b> |
+            <b id="pageTimer">Page time: 15s</b>
+        </div>
+        <div>
+            Score: <b id="score">0</b>
+        </div>
+    </div>
+
+    <canvas id="slideCanvas" width="800" height="450"></canvas>
+
+    <div>
+        <button id="startBtn">Start Game</button>
+        <button id="doneBtn">Done</button>
+    </div>
+
+    <div id="feedback" style="margin-top:10px; color:#666"></div>
+    <div id="summary"></div>
+</div>
+
+<script>
+// ---------------- CONFIG ----------------
+const MASTER_LIMIT = 60;
+const PAGE_LIMIT = 15;
+
+const slides = [
+    {
+        id: "slide_1",
+        imageSrc: "slides/slide_1.PNG",
+        metaSrc: "metadata/slide_1.json",
+        meta: null
+    },
+    {
+        id: "slide_2",
+        imageSrc: "slides/slide_2.PNG",
+        metaSrc: "metadata/slide_2.json",
+        meta: null
+    },
+    {
+        id: "slide_3",
+        imageSrc: "slides/slide_3.PNG",
+        metaSrc: "metadata/slide_3.json",
+        meta: null
+    },
+    {
+        id: "slide_4",
+        imageSrc: "slides/slide_4.png",
+        metaSrc: "metadata/slide_4.json",
+        meta: null
+    }
+];
+
+
+// ---------------- STATE ----------------
+let masterTimer = MASTER_LIMIT;
+let pageTimer = PAGE_LIMIT;
+let masterInterval = null;
+let pageInterval = null;
+let currentIndex = 0;
+let score = 0;
+let currentClicked = [];
+let currentIncorrect = [];
+let sessionLog = [];
+
+// ---------------- ELEMENTS ----------------
+const canvas = document.getElementById("slideCanvas");
+const ctx = canvas.getContext("2d");
+const masterEl = document.getElementById("masterTimer");
+const pageEl = document.getElementById("pageTimer");
+const scoreEl = document.getElementById("score");
+const feedbackEl = document.getElementById("feedback");
+const summaryEl = document.getElementById("summary");
+const startBtn = document.getElementById("startBtn");
+const doneBtn = document.getElementById("doneBtn");
+
+// ---------------- GAME START ----------------
+startBtn.onclick = startGame;
+
+async function startGame() {
+    // reset
+    masterTimer = MASTER_LIMIT;
+    pageTimer = PAGE_LIMIT;
+    currentIndex = 0;
+    score = 0;
+    currentClicked = [];
+    currentIncorrect = [];
+    sessionLog = [];
+    summaryEl.innerHTML = "";
+    scoreEl.textContent = score;
+
+    startBtn.disabled = true;
+
+    // start master timer
+    masterInterval = setInterval(() => {
+        masterTimer--;
+        masterEl.textContent = "Time left: " + masterTimer + "s";
+        if (masterTimer <= 0) endGame();
+    }, 1000);
+
+    await loadSlide(0);
+}
+
+// ---------------- LOAD SLIDE ----------------
+async function loadSlide(i) {
+    const slide = slides[i];
+
+    // load JSON metadata
+    const meta = await fetch(slide.metaSrc).then(r => r.json());
+    slide.meta = meta;
+
+    // reset page state
+    currentClicked = [];
+    currentIncorrect = [];
+    pageTimer = PAGE_LIMIT;
+    pageEl.textContent = "Page time: " + pageTimer + "s";
+
+    // start per-page timer
+    if (pageInterval) clearInterval(pageInterval);
+    pageInterval = setInterval(() => {
+        pageTimer--;
+        pageEl.textContent = "Page time: " + pageTimer + "s";
+        if (pageTimer <= 0) recordAndNext();
+    }, 1000);
+
+    // draw slide image
+    const img = new Image();
+
+img.onload = () => {
+    console.log("IMAGE LOADED SUCCESSFULLY:", slide.imageSrc);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+};
+
+img.onerror = () => {
+    console.error("IMAGE FAILED TO LOAD:", slide.imageSrc);
+    alert("Could NOT load: " + slide.imageSrc);
+};
+
+console.log("Attempting to load:", slide.imageSrc);
+img.src = slide.imageSrc;
+}
+//-----------------HIGHLIGHT----------------------
+
+// Draw a temporary box but convert from slide-space to canvas-space so alignment is exact
+function drawTempBoxFromSlideCoords(slideMeta, bx, by, bw, bh, color, timeout = 700) {
+    // scale from slide resolution to canvas resolution
+    const slideW = (slideMeta && slideMeta.width) ? slideMeta.width : 1280;
+    const slideH = (slideMeta && slideMeta.height) ? slideMeta.height : 720;
+    const scaleX = canvas.width / slideW;
+    const scaleY = canvas.height / slideH;
+
+    const cx = bx * scaleX;
+    const cy = by * scaleY;
+    const cw = bw * scaleX;
+    const ch = bh * scaleY;
+
+    // draw the rectangle
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(cx, cy, cw, ch);
+    ctx.restore();
+
+    // restore the slide image after timeout (redraw)
+    setTimeout(() => {
+        const slide = slides[currentIndex];
+        if (!slide) return;
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = slide.imageSrc;
+    }, timeout);
+}
+
+
+
+// ---------------- CLICK HANDLER ----------------
+canvas.addEventListener('click', (ev) => {
+    if (masterTimer <= 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const slide = slides[currentIndex];
+    const meta = slide.meta || {}; // meta should contain .width and .height
+
+    // slide original resolution (fallback to 1280x720)
+    const slideW = meta.width || 1280;
+    const slideH = meta.height || 720;
+
+    // convert canvas click -> slide-space coords (same as detection logic)
+    const scaleToSlideX = slideW / canvas.width;
+    const scaleToSlideY = slideH / canvas.height;
+    let x = (ev.clientX - rect.left) * scaleToSlideX;
+    let y = (ev.clientY - rect.top) * scaleToSlideY;
+
+    // find if click hits any error (in slide-space)
+    const hit = meta.errors.find(err => {
+        const [bx, by, bw, bh] = err.bbox;
+        return (x >= bx && x <= bx + bw && y >= by && y <= by + bh);
+    });
+
+    if (hit) {
+        if (!currentClicked.includes(hit.id)) {
+            currentClicked.push(hit.id);
+            score += 100;
+            feedbackEl.textContent = "Correct: " + hit.label;
+
+            // highlight the exact clicked error (convert slide-space bbox -> canvas-space inside helper)
+            drawTempBoxFromSlideCoords(meta, hit.bbox[0], hit.bbox[1], hit.bbox[2], hit.bbox[3], "rgba(0,180,0,0.9)");
+        }
+    } else {
+        // record incorrect click in slide-space (for analytics if you want)
+        currentIncorrect.push({x,y});
+        score -= 50;
+        if (score < 0) score = 0;
+        feedbackEl.textContent = "Incorrect click (-50)";
+
+        // draw a small red square where the user clicked (scale slide-space -> canvas-space)
+        // note: x,y are currently in slide-space; convert them to canvas coords for drawing
+        const scaleToCanvasX = canvas.width / slideW;
+        const scaleToCanvasY = canvas.height / slideH;
+        const cx = x * scaleToCanvasX;
+        const cy = y * scaleToCanvasY;
+        const size = 18;
+        ctx.fillStyle = "rgba(200,0,0,0.9)";
+        ctx.fillRect(cx - size/2, cy - size/2, size, size);
+
+        // fade the dot after 700ms and redraw slide
+        setTimeout(() => {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                img && ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = slide.imageSrc;
+        }, 700);
+    }
+
+    scoreEl.textContent = score;
+});
+
+
+
+// ---------------- DONE / NEXT ----------------
+doneBtn.onclick = recordAndNext;
+
+function recordAndNext() {
+    if (pageInterval) clearInterval(pageInterval);
+
+    const slide = slides[currentIndex];
+    const allErrorIds = slide.meta.errors.map(e => e.id);
+    const missed = allErrorIds.filter(id => !currentClicked.includes(id));
+
+    sessionLog.push({
+        slideId: slide.id,
+        found: currentClicked.slice(),
+        missed: missed.slice()
+    });
+
+    currentIndex++;
+
+    if (currentIndex >= slides.length || masterTimer <= 0) {
+        endGame();
+    } else {
+        loadSlide(currentIndex);
+    }
+}
+
+// ---------------- END GAME ----------------
+function endGame() {
+    if (masterInterval) clearInterval(masterInterval);
+    if (pageInterval) clearInterval(pageInterval);
+
+    startBtn.disabled = false;
+
+    summaryEl.innerHTML = `<h3>Game Over</h3>
+    <p><b>Final Score: ${score}</b></p>`;
+
+    sessionLog.forEach((sl, i) => {
+        const html = `
+            <div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
+                <b>Slide ${i+1}</b><br>
+                Found: ${sl.found.join(", ") || "None"}<br>
+                Missed: ${sl.missed.join(", ") || "None"}
+            </div>
+        `;
+        summaryEl.innerHTML += html;
+    });
+}
+
+</script>
+
+</body>
+</html>

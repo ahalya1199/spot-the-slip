@@ -1,0 +1,33 @@
+{
+  "id": "slide_4",
+  "image": "slide_4.png",
+  "width": 1280,
+  "height": 720,
+  "errors": [
+    {
+      "id": "e1",
+      "label": "Incorrect alignment",
+      "bbox": [316, 309, 59, 39]
+    },
+    {
+      "id": "e2",
+      "label": "Nonstandard line format",
+      "bbox": [23, 381, 1212, 29]
+    },
+    {
+      "id": "e3",
+      "label": "Missing source",
+      "bbox": [47, 677, 142, 26]
+    },
+    {
+      "id": "e4",
+      "label": "Missing legend",
+      "bbox": [944, 106, 299, 44]
+    },
+    {
+      "id": "e5",
+      "label": "Grammatical error in lead line",
+      "bbox": [30, 13, 1209, 86]
+    }
+  ]
+}
