@@ -1,0 +1,33 @@
+{
+  "id": "slide_1",
+  "image": "slide_1.PNG",
+  "width": 1280,
+  "height": 720,
+  "errors": [
+    {
+      "id": "e1",
+      "label": "Lead line > 3 lines",
+      "bbox": [55, 7, 1159, 151]
+    },
+    {
+      "id": "e2",
+      "label": "Numbers don't add up",
+      "bbox": [126, 288, 119, 274]
+    },
+    {
+      "id": "e3",
+      "label": "Missing footnote",
+      "bbox": [37, 645, 320, 46]
+    },
+    {
+      "id": "e4",
+      "label": "Incorrect alignment",
+      "bbox": [1081, 358, 118, 53]
+    },
+    {
+      "id": "e5",
+      "label": "Bold without a reason",
+      "bbox": [750, 515, 148, 94]
+    }
+  ]
+}
