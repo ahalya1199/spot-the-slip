@@ -166,7 +166,7 @@ button:hover {
             <li>Total session time: <strong>60 seconds</strong>.</li>
             <li>Click each part of the page that you believe is an error.</li>
             <li><strong>Correct click:</strong> +100 points. <strong>Wrong click:</strong> -50 points.</li>
-            <li>At the end you’ll get a slide-by-slide summary with feedback.</li>
+            <li>At the end you’ll get a slide-by-slide summary with human-readable feedback.</li>
           </ul>
 
           <p><strong>Common things to check:</strong> alignment, footnotes/sources, inconsistent fonts/sizes, incorrect numbers, non-standard formatting.</p>
@@ -463,6 +463,57 @@ playAgainBtn.addEventListener("click", () => {
     location.reload();
 });
 
+/*--------------------LEVELS-------------------*/
+
+const LEVELS = [
+    {
+        min: 0, max: 24,
+        title: "The Alignment Amnesiac",
+        icon: "😵‍💫",
+        color: "#cc2936",
+        description: "You’re missing the basics — alignment, margins, spacing. A little practice will go a long way!"
+    },
+    {
+        min: 25, max: 49,
+        title: "Margin Marginally Aware",
+        icon: "🤷‍♂️",
+        color: "#e76f51",
+        description: "You’re noticing some issues, but many fundamentals are slipping by unnoticed."
+    },
+    {
+        min: 50, max: 74,
+        title: "Consistency Crusader",
+        icon: "🛡️",
+        color: "#2a9d8f",
+        description: "You’re spotting structural inconsistencies — solid foundation, keep sharpening!"
+    },
+    {
+        min: 75, max: 89,
+        title: "Slide Sleuth",
+        icon: "🕵️‍♀️",
+        color: "#0077b6",
+        description: "Strong eye for detail — you can catch the majority of issues with confidence."
+    },
+    {
+        min: 90, max: 99,
+        title: "Deck Demigod",
+        icon: "⚡",
+        color: "#7209b7",
+        description: "Elite-level instincts. Errors rarely escape your gaze."
+    },
+    {
+        min: 100, max: 100,
+        title: "Senior Partner of Slides",
+        icon: "🌟",
+        color: "#f4a261",
+        description: "Masterful. You don’t make slides — you *orchestrate* them."
+    }
+];
+
+function getLevelInfo(percent) {
+    return LEVELS.find(level => percent >= level.min && percent <= level.max);
+}
+
 /* ---------------- END GAME / SUMMARY ---------------- */
 function endGame() {
   // stop timers
@@ -483,7 +534,30 @@ function endGame() {
 
   // final score
   const finalScoreBox = document.getElementById("finalScoreBox");
-  finalScoreBox.innerHTML = `<strong>Final Score:</strong> ${score} &nbsp; • &nbsp; <strong>Errors found:</strong> ${totalFound()} / ${totalErrors()}`;
+  const totalErr = totalErrors();
+const foundErr = totalFound();
+const percent = totalErr === 0 ? 0 : Math.round((foundErr / totalErr) * 100);
+
+const lvl = getLevelInfo(percent);
+
+finalScoreBox.innerHTML = `
+    <div style="font-size:22px; margin-bottom:6px;">
+        <strong>Final Score:</strong> ${score}
+    </div>
+
+    <div style="font-size:18px; margin-bottom:6px;">
+        <strong>Accuracy:</strong> ${percent}%
+    </div>
+
+    <div style="margin-top:14px; font-size:24px; font-weight:600; color:${lvl.color};">
+        ${lvl.icon} ${lvl.title}
+    </div>
+
+    <div style="font-size:15px; margin-top:8px; color:#002B49; line-height:1.45;">
+        ${lvl.description}
+    </div>
+`;
+
 
   // per-slide breakdown
   const container = document.getElementById("perSlideSummary");
@@ -540,4 +614,3 @@ console.log("Spot the Slip — initialized. Slides:", slides.length);
 </script>
 </body>
 </html>
-
