@@ -514,6 +514,68 @@ function getLevelInfo(percent) {
     return LEVELS.find(level => percent >= level.min && percent <= level.max);
 }
 
+/*-----------------CONFETTI---------------------------*/
+
+function launchEmojiConfetti(emojiArray, count = 80) {
+    for (let i = 0; i < count; i++) {
+
+        const span = document.createElement("span");
+        span.textContent = emojiArray[Math.floor(Math.random() * emojiArray.length)];
+
+        // random size + depth effect
+        const size = Math.random() * 18 + 16;
+        const depthFactor = size / 34; // bigger emojis fall slower
+        const rotateDir = Math.random() > 0.5 ? 1 : -1;
+
+        span.style.position = "fixed";
+        span.style.zIndex = 9999;
+        span.style.fontSize = size + "px";
+        span.style.left = (Math.random() * window.innerWidth) + "px";
+        span.style.top = (-50 - Math.random() * 200) + "px";
+        span.style.opacity = 1;
+        span.style.pointerEvents = "none";
+        span.style.transition = `
+            transform ${2.5 + Math.random() * 2}s cubic-bezier(.25,.46,.45,1),
+            opacity 3.5s ease-out
+        `;
+
+        document.body.appendChild(span);
+
+        // RANDOMIZED DRIFT + FALL
+        const driftX = (Math.random() - 0.5) * 600; // left or right drift
+        const fallY = window.innerHeight + 500; // full fall
+
+        // randomized rotation
+        const rotate = rotateDir * (Math.random() * 720 + 360);
+
+        // stagger each drop slightly
+        setTimeout(() => {
+            span.style.transform = `translate(${driftX}px, ${fallY}px) rotate(${rotate}deg)`;
+            span.style.opacity = 0;
+        }, i * 30 + Math.random() * 120);
+
+        // cleanup
+        setTimeout(() => span.remove(), 5000);
+    }
+}
+
+
+function triggerLevelConfetti(percent) {
+    if (percent < 50) {
+        // lower levels
+        launchEmojiConfetti(["😵‍💫", "😬", "🤯"], 70, 0.45);
+    }
+    else if (percent < 90) {
+        // mid levels
+        launchEmojiConfetti(["👍", "👏", "👌"], 80, 0.35);
+    }
+    else {
+        // senior partner levels → real confetti look
+        launchEmojiConfetti(["🎉", "✨", "🌟", "🎊"], 120, 0.30);
+    }
+}
+
+
 /* ---------------- END GAME / SUMMARY ---------------- */
 function endGame() {
   // stop timers
@@ -537,6 +599,8 @@ function endGame() {
   const totalErr = totalErrors();
 const foundErr = totalFound();
 const percent = totalErr === 0 ? 0 : Math.round((foundErr / totalErr) * 100);
+
+triggerLevelConfetti(percent);
 
 const lvl = getLevelInfo(percent);
 
