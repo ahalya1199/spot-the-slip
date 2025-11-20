@@ -5,36 +5,92 @@
 <title>Spot The Slip Game</title>
 <style>
     body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 40px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    /* McKinsey gradient */
+    background: linear-gradient(180deg, #2550FF 0%, #001A30 100%) !important;
+    background-attachment: fixed;
+}
+
+
+    h2 {
+        color: white; /* McKinsey white on blue */
+        margin-bottom: 30px;
+        font-size: 32px;
+        text-align: center;
+        font-weight: 500;
     }
+
     #gameArea {
-        border: 1px solid #ccc;
-        padding: 15px;
-        width: 820px;
+        width: 900px;
+        background: white;
+        border: 1px solid #d2d6da;
+        border-radius: 8px;
+        padding: 30px 40px;
+        box-sizing: border-box;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
     }
-    canvas {
-        border: 1px solid #eee;
-        background: #fff;
-    }
+
     .topbar {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 10px;
+        align-items: center;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #e4e7ea;
+        color: #002B49;
+        font-size: 16px;
     }
+
+    canvas {
+        border: 1px solid #ccd2d8;
+        background: #fff;
+        border-radius: 4px;
+        display: block;
+        margin: 0 auto 20px auto; /* centers canvas */
+    }
+
     button {
-        padding: 8px 12px;
-        background: #0a66c2;
+        padding: 10px 18px;
+        background: #003A70;
         color: white;
         border: none;
         border-radius: 6px;
+        font-size: 15px;
         cursor: pointer;
-        margin: 5px;
+        margin-right: 10px;
+        transition: background 0.2s ease;
     }
-    #summary { margin-top: 20px; }
+
+    button:hover {
+        background: #004b91;
+    }
+
+    #feedback {
+        margin-top: 15px;
+        font-size: 15px;
+        color: #004b91;
+        min-height: 20px;
+    }
+
+    #summary {
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e4e7ea;
+        color: #002B49;
+    }
+
+    #summary h3 {
+        font-size: 20px;
+        color: #003A70;
+        margin-bottom: 10px;
+    }
+
 </style>
 </head>
 
@@ -322,16 +378,39 @@ function endGame() {
     summaryEl.innerHTML = `<h3>Game Over</h3>
     <p><b>Final Score: ${score}</b></p>`;
 
-    sessionLog.forEach((sl, i) => {
-        const html = `
-            <div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
-                <b>Slide ${i+1}</b><br>
-                Found: ${sl.found.join(", ") || "None"}<br>
-                Missed: ${sl.missed.join(", ") || "None"}
-            </div>
-        `;
-        summaryEl.innerHTML += html;
+   sessionLog.forEach((sl, i) => {
+    
+    // get metadata for this slide
+    const slideMeta = slides.find(s => s.id === sl.slideId).meta;
+
+    // Convert IDs → label text
+    const foundLabels = sl.found.map(id => {
+        const err = slideMeta.errors.find(e => e.id === id);
+        return err ? err.label : id;
     });
+
+    const missedLabels = sl.missed.map(id => {
+        const err = slideMeta.errors.find(e => e.id === id);
+        return err ? err.label : id;
+    });
+
+    summaryEl.innerHTML += `
+        <div style="margin-top:15px; border-top:1px solid #ddd; padding-top:10px;">
+            <b>Slide ${i + 1}</b><br><br>
+
+            <b>Found:</b><br>
+            ${foundLabels.length 
+                ? foundLabels.map(l => "✔️ " + l).join("<br>") 
+                : "None"}<br><br>
+
+            <b>Missed:</b><br>
+            ${missedLabels.length 
+                ? missedLabels.map(l => "❌ " + l).join("<br>") 
+                : "None"}
+        </div>
+    `;
+});
+
 }
 
 </script>
