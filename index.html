@@ -102,16 +102,17 @@
     cursor: pointer;
     margin-right: 10px;
     transition: background 0.2s ease;
-}
+  }
 
-button:hover {
+  button:hover {
     background: #004b91;
-}
+  }
+
   .controls button.secondary {
     background:#7b8790;
   }
 
-.hero-btn {
+  .hero-btn {
     padding: 14px 32px;
     font-size: 20px;
     font-weight: 500;
@@ -122,12 +123,12 @@ button:hover {
     cursor: pointer;
     transition: background 0.25s ease, transform 0.15s ease;
     font-family: "Helvetica Neue", Arial, sans-serif;
-}
+  }
 
-.hero-btn:hover {
+  .hero-btn:hover {
     background: #0093dd; /* lighter hover blue */
     transform: translateY(-2px);
-}
+  }
 
   /* Feedback */
   #feedback { text-align:center; color:#004b91; min-height:20px; margin-top:8px; }
@@ -137,11 +138,53 @@ button:hover {
   .slide-summary { margin-bottom:12px; border-radius:8px; padding:14px; background:#f7fbff; color:var(--mc-blue); }
   .slide-summary b { display:block; margin-bottom:8px; }
 
+  /* Difficulty pill on summary */
+  .difficulty-pill {
+    position:absolute;
+    top:16px;
+    right:16px;
+    background:#e8f1fb;
+    color:#003A70;
+    padding:6px 14px;
+    font-size:13px;
+    border-radius:20px;
+    border:1px solid #c5d7ea;
+    font-weight:500;
+  }
+
   /* Responsive tweaks */
   @media (max-width:700px){
     .topbar { font-size:14px; }
     .controls button { width:48%; box-sizing:border-box; }
   }
+
+.summary-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.summary-header .score-line {
+    font-size: 22px;
+    margin-bottom: 6px;
+}
+
+.summary-header .accuracy-line {
+    font-size: 18px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.summary-header .level-block {
+    margin-top: 10px;
+    max-width: 500px;
+}
+
+
 </style>
 </head>
 
@@ -162,8 +205,9 @@ button:hover {
           <p><strong>Objective:</strong> Identify page-making errors quickly and accurately.</p>
 
           <ul>
-            <li>Each slide is shown for <strong>15 seconds</strong>.</li>
-            <li>Total session time: <strong>60 seconds</strong>.</li>
+            <li>Each slide is shown for a fixed time depending on difficulty:
+              <strong>Beginner 30s</strong>, <strong>Novice 20s</strong>, <strong>Challenger 15s</strong>.</li>
+            <li>Total session time also scales with difficulty (approx. 120s / 90s / 60s).</li>
             <li>Click each part of the page that you believe is an error.</li>
             <li><strong>Correct click:</strong> +100 points. <strong>Wrong click:</strong> -50 points.</li>
             <li>At the end you’ll get a slide-by-slide summary with human-readable feedback.</li>
@@ -172,10 +216,30 @@ button:hover {
           <p><strong>Common things to check:</strong> alignment, footnotes/sources, inconsistent fonts/sizes, incorrect numbers, non-standard formatting.</p>
         </div>
 
-        <div style="text-align:center; margin-top:18px;">
-	<button id="startGameBtn" class="hero-btn" style="margin-top:40px;">
-    	Start Game
-	</button>
+        <!-- Difficulty selection -->
+        <div style="margin-top:18px; padding:14px 16px; border-radius:8px; background:#f4f7fb;">
+          <p style="margin:0 0 6px 0; font-weight:600; color:var(--mc-deep);">Select difficulty:</p>
+
+          <div style="margin-top:6px; font-size:15px; color:#12324a;">
+            <label style="display:block; margin-bottom:4px;">
+              <input type="radio" name="difficulty" value="beginner" checked>
+              <strong>Beginner</strong> — 30s per slide, more relaxed pacing
+            </label>
+            <label style="display:block; margin-bottom:4px;">
+              <input type="radio" name="difficulty" value="novice">
+              <strong>Novice</strong> — 20s per slide, standard consultant speed
+            </label>
+            <label style="display:block;">
+              <input type="radio" name="difficulty" value="challenger">
+              <strong>Challenger</strong> — 15s per slide, fast “room-ready” instincts
+            </label>
+          </div>
+        </div>
+
+        <div style="text-align:center; margin-top:24px;">
+          <button id="startGameBtn" class="hero-btn" style="margin-top:10px;">
+            Start Game
+          </button>
         </div>
       </div>
     </div>
@@ -202,15 +266,18 @@ button:hover {
 
     <!-- ========== SUMMARY PAGE ========== -->
     <div id="summaryPage" style="display:none;">
-      <div class="card">
+      <div class="card" style="position:relative;">
+        <!-- Difficulty badge -->
+        <div id="difficultyBadge" class="difficulty-pill"></div>
+
         <h2 style="margin-top:0; color:var(--mc-deep)">Game Summary</h2>
         <div id="finalScoreBox" style="font-size:18px; margin-bottom:14px;"></div>
         <div id="perSlideSummary"></div>
 
         <div style="text-align:center; margin-top:18px;">
           <button id="playAgainBtn" class="hero-btn">
-	    Play Again
-	</button>
+            Play Again
+          </button>
         </div>
       </div>
     </div>
@@ -219,16 +286,27 @@ button:hover {
 
 <script>
 /* ---------------- CONFIG ---------------- */
-const MASTER_LIMIT = 60;
+// These are "base" limits; actual timing comes from difficulty config
+const MASTER_LIMIT = 60;  // used as fallback if needed
 const PAGE_LIMIT = 15;
 
-// NOTE: Using .PNG references intentionally (as requested)
+// Slides
 const slides = [
   { id: "slide_1", imageSrc: "slides/slide_1.PNG", metaSrc: "metadata/slide_1.json", meta: null },
   { id: "slide_2", imageSrc: "slides/slide_2.PNG", metaSrc: "metadata/slide_2.json", meta: null },
   { id: "slide_3", imageSrc: "slides/slide_3.PNG", metaSrc: "metadata/slide_3.json", meta: null },
   { id: "slide_4", imageSrc: "slides/slide_4.PNG", metaSrc: "metadata/slide_4.json", meta: null }
 ];
+
+/* ---------------- DIFFICULTY CONFIG ---------------- */
+// Beginner default
+const DIFFICULTY_CONFIG = {
+  beginner:   { label: "Beginner",   pageTime: 30, masterTime: 120 },
+  novice:     { label: "Novice",     pageTime: 20, masterTime: 90  },
+  challenger: { label: "Challenger", pageTime: 15, masterTime: 60  }
+};
+
+let selectedDifficulty = "beginner";
 
 /* ---------------- STATE ---------------- */
 let masterTimer = MASTER_LIMIT;
@@ -258,6 +336,23 @@ const feedbackEl = document.getElementById("feedback");
 
 const canvas = document.getElementById("slideCanvas");
 const ctx = canvas.getContext("2d");
+
+/* Difficulty radio inputs */
+const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
+difficultyInputs.forEach(inp => {
+  inp.addEventListener("change", () => {
+    selectedDifficulty = inp.value;
+    console.log("Selected difficulty:", selectedDifficulty);
+  });
+});
+
+/* Helper: get times from difficulty */
+function getCurrentPageTime() {
+  return DIFFICULTY_CONFIG[selectedDifficulty].pageTime;
+}
+function getCurrentMasterTime() {
+  return DIFFICULTY_CONFIG[selectedDifficulty].masterTime;
+}
 
 /* ---------------- UI: page switching ---------------- */
 function showPage(page) {
@@ -388,7 +483,7 @@ async function loadSlide(i) {
   // reset state for that page
   currentClicked = [];
   currentIncorrect = [];
-  pageTimer = PAGE_LIMIT;
+  pageTimer = getCurrentPageTime();
   pageEl.textContent = `Page time: ${pageTimer}s`;
   feedbackEl.textContent = "";
 
@@ -409,8 +504,8 @@ async function loadSlide(i) {
 /* ---------------- GAME START / TIMERS ---------------- */
 function startGame() {
   // reset session state
-  masterTimer = MASTER_LIMIT;
-  pageTimer = PAGE_LIMIT;
+  masterTimer = getCurrentMasterTime();
+  pageTimer = getCurrentPageTime();
   currentIndex = 0;
   score = 0;
   currentClicked = [];
@@ -457,14 +552,13 @@ function recordAndNext() {
 doneBtn.addEventListener('click', recordAndNext);
 endEarlyBtn.addEventListener('click', () => { endGame(); });
 
-/* PLAY AGAIN BUTTON — INSERT THIS */
-
-playAgainBtn.addEventListener("click", () => {
-    location.reload();
+/* PLAY AGAIN BUTTON */
+playAgainBtn.addEventListener('click', () => {
+  // reload the page to reset everything simply
+  location.reload();
 });
 
-/*--------------------LEVELS-------------------*/
-
+/*-------------------- PERFORMANCE LEVELS -------------------*/
 const LEVELS = [
     {
         min: 0, max: 24,
@@ -514,17 +608,14 @@ function getLevelInfo(percent) {
     return LEVELS.find(level => percent >= level.min && percent <= level.max);
 }
 
-/*-----------------CONFETTI---------------------------*/
-
+/*----------------- CONFETTI ---------------------------*/
 function launchEmojiConfetti(emojiArray, count = 80) {
     for (let i = 0; i < count; i++) {
 
         const span = document.createElement("span");
         span.textContent = emojiArray[Math.floor(Math.random() * emojiArray.length)];
 
-        // random size + depth effect
         const size = Math.random() * 18 + 16;
-        const depthFactor = size / 34; // bigger emojis fall slower
         const rotateDir = Math.random() > 0.5 ? 1 : -1;
 
         span.style.position = "fixed";
@@ -541,40 +632,30 @@ function launchEmojiConfetti(emojiArray, count = 80) {
 
         document.body.appendChild(span);
 
-        // RANDOMIZED DRIFT + FALL
-        const driftX = (Math.random() - 0.5) * 600; // left or right drift
-        const fallY = window.innerHeight + 500; // full fall
-
-        // randomized rotation
+        const driftX = (Math.random() - 0.5) * 600;
+        const fallY = window.innerHeight + 500;
         const rotate = rotateDir * (Math.random() * 720 + 360);
 
-        // stagger each drop slightly
         setTimeout(() => {
             span.style.transform = `translate(${driftX}px, ${fallY}px) rotate(${rotate}deg)`;
             span.style.opacity = 0;
         }, i * 30 + Math.random() * 120);
 
-        // cleanup
         setTimeout(() => span.remove(), 5000);
     }
 }
 
-
 function triggerLevelConfetti(percent) {
     if (percent < 50) {
-        // lower levels
-        launchEmojiConfetti(["😵‍💫", "😬", "🤯"], 70, 0.45);
+        launchEmojiConfetti(["😵‍💫", "😬", "🤯"], 70);
     }
     else if (percent < 90) {
-        // mid levels
-        launchEmojiConfetti(["👍", "👏", "👌"], 80, 0.35);
+        launchEmojiConfetti(["👍", "👏", "👌"], 80);
     }
     else {
-        // senior partner levels → real confetti look
-        launchEmojiConfetti(["🎉", "✨", "🌟", "🎊"], 120, 0.30);
+        launchEmojiConfetti(["🎉", "✨", "🌟", "🎊"], 120);
     }
 }
-
 
 /* ---------------- END GAME / SUMMARY ---------------- */
 function endGame() {
@@ -594,34 +675,57 @@ function endGame() {
   // show summary page
   showPage("summary");
 
-  // final score
+  // difficulty badge
+  const badge = document.getElementById("difficultyBadge");
+  const diffInfo = DIFFICULTY_CONFIG[selectedDifficulty];
+  const badgeBg = {
+    beginner: "#e0efff",
+    novice: "#e3f6f1",
+    challenger: "#e7e3ff"
+  };
+  const badgeText = {
+    beginner: "#003A70",
+    novice: "#005f56",
+    challenger: "#2d005f"
+  };
+
+  badge.textContent = `Difficulty: ${diffInfo.label}`;
+  badge.style.background = badgeBg[selectedDifficulty];
+  badge.style.color = badgeText[selectedDifficulty];
+
+  // final score + level
   const finalScoreBox = document.getElementById("finalScoreBox");
   const totalErr = totalErrors();
-const foundErr = totalFound();
-const percent = totalErr === 0 ? 0 : Math.round((foundErr / totalErr) * 100);
+  const foundErr = totalFound();
+  const percent = totalErr === 0 ? 0 : Math.round((foundErr / totalErr) * 100);
 
-triggerLevelConfetti(percent);
+  triggerLevelConfetti(percent);
 
-const lvl = getLevelInfo(percent);
+  const lvl = getLevelInfo(percent);
 
 finalScoreBox.innerHTML = `
-    <div style="font-size:22px; margin-bottom:6px;">
-        <strong>Final Score:</strong> ${score}
-    </div>
+    <div class="summary-header">
 
-    <div style="font-size:18px; margin-bottom:6px;">
-        <strong>Accuracy:</strong> ${percent}%
-    </div>
+        <div class="score-line">
+            <strong>Final Score:</strong> ${score} / ${totalErr * 100}
+        </div>
 
-    <div style="margin-top:14px; font-size:24px; font-weight:600; color:${lvl.color};">
-        ${lvl.icon} ${lvl.title}
-    </div>
+        <div class="accuracy-line">
+            <span><strong>Accuracy:</strong> ${percent}%</span>
+            <span><strong>Errors found:</strong> ${foundErr}/${totalErr}</span>
+        </div>
 
-    <div style="font-size:15px; margin-top:8px; color:#002B49; line-height:1.45;">
-        ${lvl.description}
+        <div class="level-block" style="color:${lvl.color};">
+            <div style="font-size:26px; font-weight:600;">
+                ${lvl.icon} ${lvl.title}
+            </div>
+            <div style="font-size:15px; margin-top:8px; color:#002B49; line-height:1.45;">
+                ${lvl.description}
+            </div>
+        </div>
+
     </div>
 `;
-
 
   // per-slide breakdown
   const container = document.getElementById("perSlideSummary");
@@ -663,12 +767,6 @@ function totalErrors(){
 function totalFound(){
   return sessionLog.reduce((acc,sl) => acc + ((sl.found && sl.found.length) || 0), 0);
 }
-
-/* ---------------- Play again ---------------- */
-playAgainBtn.addEventListener('click', () => {
-  // reload the page to reset everything simply
-  location.reload();
-});
 
 /* ---------------- On load: show instructions ---------------- */
 showPage("instructions");
